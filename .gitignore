@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Nuxt build outputs
+.nuxt/
+.output/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+coverage/
+
+# Misc
+*.local
