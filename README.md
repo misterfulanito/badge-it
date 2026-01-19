@@ -80,4 +80,4 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 
 ---
 
-Made with magic by pixel wizards
+Made with magic by pixel wizards, Huri. Special recognition to the alchemist Sr.Javi
