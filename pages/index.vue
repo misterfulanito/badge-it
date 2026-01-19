@@ -5,6 +5,7 @@ import type { BadgePosition } from '~/components/BadgePositioner.vue'
 // Composables
 const { downloadFailed } = useToastMessages()
 const { exportImage, setBadgeSize } = useImageProcessor()
+const { isUpscaling, progress, currentMessage, upscaleImage } = useImageUpscaler()
 
 // App state
 const croppedCanvas = ref<HTMLCanvasElement | null>(null)
@@ -138,7 +139,7 @@ function shareVia(platform: string) {
 }
 
 /**
- * Download the final image as PNG
+ * Download the final image as PNG with AI upscaling
  */
 async function downloadImage() {
   if (!croppedCanvas.value) return
@@ -160,14 +161,32 @@ async function downloadImage() {
       })
     }
 
-    // Export the composition
-    const blob = await exportImage(croppedCanvas.value, badgeImg, badgePosition.value)
+    // Export the composition to a canvas
+    const composedBlob = await exportImage(croppedCanvas.value, badgeImg, badgePosition.value)
+
+    // Convert blob to canvas for upscaling
+    const composedCanvas = document.createElement('canvas')
+    const ctx = composedCanvas.getContext('2d')
+    const img = new Image()
+
+    await new Promise<void>((resolve) => {
+      img.onload = () => {
+        composedCanvas.width = img.width
+        composedCanvas.height = img.height
+        ctx?.drawImage(img, 0, 0)
+        resolve()
+      }
+      img.src = URL.createObjectURL(composedBlob)
+    })
+
+    // Upscale the image using AI magic
+    const upscaledBlob = await upscaleImage(composedCanvas)
 
     // Trigger download
-    const url = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(upscaledBlob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'badge-it-profile.png'
+    link.download = 'badge-it-profile-hd.png'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -453,6 +472,34 @@ onUnmounted(() => {
             />
           </div>
           <p class="modal-hint">Your image at full resolution (1024 x 1024px)</p>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Wizard Processing Modal -->
+    <Teleport to="body">
+      <div v-if="isUpscaling" class="wizard-modal-overlay">
+        <div class="wizard-modal">
+          <div class="wizard-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+            <div class="wizard-sparkles">
+              <span class="sparkle sparkle-1">✨</span>
+              <span class="sparkle sparkle-2">⭐</span>
+              <span class="sparkle sparkle-3">✨</span>
+              <span class="sparkle sparkle-4">🌟</span>
+            </div>
+          </div>
+          <h2 class="wizard-title">Image Wizardry in Progress</h2>
+          <p class="wizard-message">{{ currentMessage }}</p>
+          <div class="wizard-progress-container">
+            <div class="wizard-progress-bar" :style="{ width: `${progress}%` }" />
+          </div>
+          <p class="wizard-progress-text">{{ progress }}% complete</p>
+          <p class="wizard-note">Please don't close this window while our pixel wizards work their magic!</p>
         </div>
       </div>
     </Teleport>
@@ -898,6 +945,172 @@ onUnmounted(() => {
 }
 
 /* ============================================================================
+   Wizard Processing Modal
+   ============================================================================ */
+
+.wizard-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wizard-modal {
+  background: linear-gradient(135deg, var(--surface-card) 0%, var(--surface-100) 100%);
+  border-radius: 24px;
+  padding: 3rem 2.5rem;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), 0 0 60px rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--surface-200);
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.wizard-icon {
+  position: relative;
+  margin-bottom: 1.5rem;
+  display: inline-block;
+  color: #8b5cf6;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.wizard-sparkles {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+}
+
+.sparkle {
+  position: absolute;
+  font-size: 1.25rem;
+  animation: sparkleFloat 2s ease-in-out infinite;
+}
+
+.sparkle-1 {
+  top: 0;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.sparkle-2 {
+  top: 20%;
+  right: 0;
+  animation-delay: 0.5s;
+}
+
+.sparkle-3 {
+  bottom: 10%;
+  left: 0;
+  animation-delay: 1s;
+}
+
+.sparkle-4 {
+  bottom: 0;
+  right: 15%;
+  animation-delay: 1.5s;
+}
+
+@keyframes sparkleFloat {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateY(0) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.2);
+  }
+}
+
+.wizard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0 0 0.75rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 50%, #c4b5fd 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.wizard-message {
+  font-size: 1.125rem;
+  color: var(--text-color);
+  margin: 0 0 1.5rem;
+  min-height: 1.5em;
+  transition: opacity 0.3s ease;
+}
+
+.wizard-progress-container {
+  background: var(--surface-200);
+  border-radius: 100px;
+  height: 12px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.wizard-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 50%, #c4b5fd 100%);
+  border-radius: 100px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.wizard-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.wizard-progress-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin: 0 0 1rem;
+}
+
+.wizard-note {
+  font-size: 0.8125rem;
+  color: var(--text-color-secondary);
+  margin: 0;
+  font-style: italic;
+}
+
+/* ============================================================================
    Reduced Motion
    ============================================================================ */
 
@@ -905,7 +1118,13 @@ onUnmounted(() => {
   .section-chevron,
   .size-option-content,
   .share-option,
-  .modal-close {
+  .modal-close,
+  .wizard-modal-overlay,
+  .wizard-modal,
+  .wizard-icon,
+  .sparkle,
+  .wizard-progress-bar::after {
+    animation: none;
     transition: none;
   }
 }
