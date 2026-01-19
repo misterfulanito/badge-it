@@ -400,8 +400,8 @@ onUnmounted(() => {
     <!-- Sticky Bottom Action Bar -->
     <div class="sticky-action-bar">
       <div class="action-bar-content">
-        <!-- Share Button -->
-        <div class="share-container">
+        <!-- Share Button (hidden for now) -->
+        <div v-show="false" class="share-container">
           <Button
             label="Share"
             severity="secondary"
