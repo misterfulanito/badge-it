@@ -966,7 +966,7 @@ onUnmounted(() => {
 }
 
 .wizard-modal {
-  background: linear-gradient(135deg, var(--surface-card) 0%, var(--surface-100) 100%);
+  background: #ffffff;
   border-radius: 24px;
   padding: 3rem 2.5rem;
   text-align: center;
