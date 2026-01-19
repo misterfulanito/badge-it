@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <circle cx="256" cy="256" r="240" fill="#3b82f6" stroke="#2563eb" stroke-width="16"/>
-  <text x="256" y="240" text-anchor="middle" font-family="system-ui" font-size="80" font-weight="bold" fill="white">OPEN</text>
-  <text x="256" y="320" text-anchor="middle" font-family="system-ui" font-size="60" font-weight="bold" fill="white">TO WORK</text>
-</svg>

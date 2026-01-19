@@ -2,7 +2,8 @@
  * useBadges Composable
  *
  * Provides badge data and selection state management for the badge library.
- * Supports single selection with toggle behavior.
+ * Dynamically loads PNG badges from the /public/badges folder.
+ * Badge names are generated from filenames (e.g., "open-to-work.png" -> "Open to work")
  */
 
 export interface Badge {
@@ -12,7 +13,36 @@ export interface Badge {
   isNoBadge?: boolean
 }
 
-// Badge definitions - flat list with "No Badge" option first
+/**
+ * Convert a filename to a display name
+ * e.g., "this-is-a-badge.png" -> "This is a badge"
+ */
+function fileNameToDisplayName(filename: string): string {
+  // Remove extension
+  const nameWithoutExt = filename.replace(/\.[^/.]+$/, '')
+  // Replace hyphens with spaces
+  const withSpaces = nameWithoutExt.replace(/-/g, ' ')
+  // Capitalize first letter only
+  return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1)
+}
+
+// Use Vite's glob import to get all PNG files from the badges folder
+const badgeFiles = import.meta.glob('/public/badges/*.png', { eager: true, query: '?url', import: 'default' })
+
+// Build badges array dynamically from PNG files
+const dynamicBadges: Badge[] = Object.keys(badgeFiles).map((path) => {
+  // Extract filename from path (e.g., "/public/badges/hiring.png" -> "hiring.png")
+  const filename = path.split('/').pop() || ''
+  const id = filename.replace(/\.[^/.]+$/, '') // Remove extension for ID
+
+  return {
+    id,
+    name: fileNameToDisplayName(filename),
+    src: `/badges/${filename}`
+  }
+}).sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+
+// Final badges array with "No Badge" option first
 const badges: Badge[] = [
   {
     id: 'no-badge',
@@ -20,51 +50,7 @@ const badges: Badge[] = [
     src: null,
     isNoBadge: true
   },
-  {
-    id: 'open-to-work',
-    name: 'Open to Work',
-    src: '/badges/open-to-work.svg'
-  },
-  {
-    id: 'hiring',
-    name: 'Hiring',
-    src: '/badges/hiring.png'
-  },
-  {
-    id: 'verified',
-    name: 'Verified',
-    src: '/badges/verified.svg'
-  },
-  {
-    id: 'available',
-    name: 'Available',
-    src: '/badges/available.svg'
-  },
-  {
-    id: 'certified',
-    name: 'Certified',
-    src: '/badges/certified.svg'
-  },
-  {
-    id: 'pride',
-    name: 'Pride',
-    src: '/badges/pride.svg'
-  },
-  {
-    id: 'ukraine-support',
-    name: 'Ukraine',
-    src: '/badges/ukraine-support.svg'
-  },
-  {
-    id: 'gamer',
-    name: 'Gamer',
-    src: '/badges/gamer.svg'
-  },
-  {
-    id: 'party',
-    name: 'Party',
-    src: '/badges/party.svg'
-  }
+  ...dynamicBadges
 ]
 
 export function useBadges() {
