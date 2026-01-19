@@ -23,7 +23,7 @@ const badges: Badge[] = [
   {
     id: 'open-to-work',
     name: 'Open to Work',
-    src: '/badges/open-to-work.png'
+    src: '/badges/open-to-work.svg'
   },
   {
     id: 'hiring',
@@ -33,7 +33,37 @@ const badges: Badge[] = [
   {
     id: 'verified',
     name: 'Verified',
-    src: '/badges/verified.png'
+    src: '/badges/verified.svg'
+  },
+  {
+    id: 'available',
+    name: 'Available',
+    src: '/badges/available.svg'
+  },
+  {
+    id: 'certified',
+    name: 'Certified',
+    src: '/badges/certified.svg'
+  },
+  {
+    id: 'pride',
+    name: 'Pride',
+    src: '/badges/pride.svg'
+  },
+  {
+    id: 'ukraine-support',
+    name: 'Ukraine',
+    src: '/badges/ukraine-support.svg'
+  },
+  {
+    id: 'gamer',
+    name: 'Gamer',
+    src: '/badges/gamer.svg'
+  },
+  {
+    id: 'party',
+    name: 'Party',
+    src: '/badges/party.svg'
   }
 ]
 

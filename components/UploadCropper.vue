@@ -45,10 +45,9 @@ const emit = defineEmits<{
 // Constants
 // ---------------------------------------------------------------------------
 
-const MIN_ZOOM = 0.5 // 50%
-const MAX_ZOOM = 2.0 // 200%
-const ZOOM_STEP = 0.25 // 25%
-const DEFAULT_ZOOM = 1.0 // 100%
+const MIN_ZOOM_MULTIPLIER = 1.0 // 100% of initial fit
+const MAX_ZOOM_MULTIPLIER = 3.0 // 300% of initial fit
+const ZOOM_STEP_MULTIPLIER = 0.25 // 25% step
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const OUTPUT_SIZE = 1024 // Final output size
@@ -62,10 +61,13 @@ const imageRef = ref<HTMLImageElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const cropperInstance = ref<Cropper | null>(null)
 const imageSrc = ref<string | null>(null)
-const zoomLevel = ref(DEFAULT_ZOOM)
 const isLoading = ref(false)
 const isDragging = ref(false)
 const errorMessage = ref<string | null>(null)
+
+// Zoom state - relative to initial fit
+const initialZoomRatio = ref(1) // The ratio when image first fits
+const currentZoomMultiplier = ref(1) // Current zoom as multiplier of initial (1 = 100%)
 
 // Badge state
 const badgeImage = ref<HTMLImageElement | null>(null)
@@ -79,9 +81,9 @@ const { badgeSizeRatio } = useImageProcessor()
 // ---------------------------------------------------------------------------
 
 const hasImage = computed(() => !!imageSrc.value)
-const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
-const isZoomOutDisabled = computed(() => zoomLevel.value <= MIN_ZOOM)
-const isZoomInDisabled = computed(() => zoomLevel.value >= MAX_ZOOM)
+const zoomPercent = computed(() => Math.round(currentZoomMultiplier.value * 100))
+const isZoomOutDisabled = computed(() => currentZoomMultiplier.value <= MIN_ZOOM_MULTIPLIER)
+const isZoomInDisabled = computed(() => currentZoomMultiplier.value >= MAX_ZOOM_MULTIPLIER)
 
 // Compute badge overlay styles for positioning
 const badgeOverlayStyle = computed(() => {
@@ -238,9 +240,9 @@ function initCropper(): void {
 
   cropperInstance.value = new Cropper(imageRef.value, {
     aspectRatio: 1,
-    viewMode: 1,
+    viewMode: 2, // Restrict crop box to fit within container, image can extend outside
     dragMode: 'move',
-    autoCropArea: 1,
+    autoCropArea: 1, // Crop box fills the entire container
     responsive: true,
     restore: false,
     guides: true,
@@ -252,27 +254,50 @@ function initCropper(): void {
     minContainerWidth: 200,
     minContainerHeight: 200,
     ready() {
-      zoomLevel.value = DEFAULT_ZOOM
+      // Store the initial zoom ratio (when image is fit to fill the crop area)
+      const imageData = cropperInstance.value?.getImageData()
+      if (imageData) {
+        // Calculate the ratio needed to fill the crop box
+        const containerData = cropperInstance.value?.getContainerData()
+        if (containerData) {
+          const naturalWidth = imageData.naturalWidth
+          const naturalHeight = imageData.naturalHeight
+          const containerSize = Math.min(containerData.width, containerData.height)
+
+          // For rectangular images, calculate based on the smaller dimension to ensure fill
+          const minDimension = Math.min(naturalWidth, naturalHeight)
+          initialZoomRatio.value = containerSize / minDimension
+
+          // Zoom to fill the crop box initially
+          cropperInstance.value?.zoomTo(initialZoomRatio.value)
+        }
+      }
+      currentZoomMultiplier.value = 1
       // Auto-emit initial crop for single-page preview
-      emitCroppedCanvas()
+      nextTick(() => emitCroppedCanvas())
     },
     cropend() {
       // Auto-emit when user finishes adjusting crop
       emitCroppedCanvas()
     },
     zoom(event) {
-      // Constrain zoom level
+      // Calculate the new multiplier relative to initial zoom
       const newRatio = event.detail.ratio
-      if (newRatio < MIN_ZOOM) {
+      const newMultiplier = newRatio / initialZoomRatio.value
+
+      // Constrain zoom to min/max multipliers
+      if (newMultiplier < MIN_ZOOM_MULTIPLIER) {
         event.preventDefault()
-        cropperInstance.value?.zoomTo(MIN_ZOOM)
-        zoomLevel.value = MIN_ZOOM
-      } else if (newRatio > MAX_ZOOM) {
+        const constrainedRatio = initialZoomRatio.value * MIN_ZOOM_MULTIPLIER
+        cropperInstance.value?.zoomTo(constrainedRatio)
+        currentZoomMultiplier.value = MIN_ZOOM_MULTIPLIER
+      } else if (newMultiplier > MAX_ZOOM_MULTIPLIER) {
         event.preventDefault()
-        cropperInstance.value?.zoomTo(MAX_ZOOM)
-        zoomLevel.value = MAX_ZOOM
+        const constrainedRatio = initialZoomRatio.value * MAX_ZOOM_MULTIPLIER
+        cropperInstance.value?.zoomTo(constrainedRatio)
+        currentZoomMultiplier.value = MAX_ZOOM_MULTIPLIER
       } else {
-        zoomLevel.value = newRatio
+        currentZoomMultiplier.value = newMultiplier
       }
       // Emit after zoom change
       emitCroppedCanvas()
@@ -291,23 +316,25 @@ function destroyCropper(): void {
 // Zoom Controls
 // ---------------------------------------------------------------------------
 
-function setZoom(level: number): void {
+function setZoomMultiplier(multiplier: number): void {
   if (!cropperInstance.value) return
-  const clampedLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, level))
-  cropperInstance.value.zoomTo(clampedLevel)
-  zoomLevel.value = clampedLevel
+  const clampedMultiplier = Math.max(MIN_ZOOM_MULTIPLIER, Math.min(MAX_ZOOM_MULTIPLIER, multiplier))
+  const targetRatio = initialZoomRatio.value * clampedMultiplier
+  cropperInstance.value.zoomTo(targetRatio)
+  currentZoomMultiplier.value = clampedMultiplier
+  emitCroppedCanvas()
 }
 
 function zoomIn(): void {
-  setZoom(zoomLevel.value + ZOOM_STEP)
+  setZoomMultiplier(currentZoomMultiplier.value + ZOOM_STEP_MULTIPLIER)
 }
 
 function zoomOut(): void {
-  setZoom(zoomLevel.value - ZOOM_STEP)
+  setZoomMultiplier(currentZoomMultiplier.value - ZOOM_STEP_MULTIPLIER)
 }
 
 function onSliderChange(value: number): void {
-  setZoom(value / 100)
+  setZoomMultiplier(value / 100)
 }
 
 // ---------------------------------------------------------------------------
@@ -345,7 +372,8 @@ function confirmCrop(): void {
 function resetImage(): void {
   destroyCropper()
   imageSrc.value = null
-  zoomLevel.value = DEFAULT_ZOOM
+  initialZoomRatio.value = 1
+  currentZoomMultiplier.value = 1
   errorMessage.value = null
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
@@ -543,17 +571,17 @@ defineExpose({
         <div class="slider-container">
           <Slider
             :model-value="zoomPercent"
-            :min="50"
-            :max="200"
+            :min="100"
+            :max="300"
             :step="25"
             :disabled="!hasImage"
             aria-label="Zoom level"
             @update:model-value="onSliderChange"
           />
           <div class="slider-labels">
-            <span>50%</span>
             <span>100%</span>
             <span>200%</span>
+            <span>300%</span>
           </div>
         </div>
 
