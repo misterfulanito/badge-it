@@ -807,9 +807,13 @@ defineExpose({
   border-radius: var(--border-radius-lg, 12px);
 }
 
+/* Hide the dark overlay/modal - the entire preview box is the crop area */
+:deep(.cropper-modal) {
+  display: none;
+}
+
 :deep(.cropper-view-box) {
-  outline: 2px solid var(--primary-color);
-  outline-offset: -2px;
+  outline: none;
 }
 
 :deep(.cropper-face) {
@@ -817,7 +821,7 @@ defineExpose({
 }
 
 :deep(.cropper-dashed) {
-  border-color: rgba(255, 255, 255, 0.4);
+  display: none;
 }
 
 :deep(.cropper-center) {
