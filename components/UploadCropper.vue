@@ -48,7 +48,7 @@ const emit = defineEmits<{
 const MIN_ZOOM_MULTIPLIER = 1.0 // 100% of initial fit
 const MAX_ZOOM_MULTIPLIER = 3.0 // 300% of initial fit
 const ZOOM_STEP_MULTIPLIER = 0.25 // 25% step
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILE_SIZE = 12 * 1024 * 1024 // 12MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const OUTPUT_SIZE = 1024 // Final output size
 const BADGE_PADDING = 10 // Padding from edges in pixels (percentage based)
@@ -164,7 +164,7 @@ function validateFile(file: File): string | null {
     return 'Please upload a PNG, JPG, or WebP image'
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'File size must be less than 5MB'
+    return 'File size must be less than 12MB'
   }
   return null
 }
@@ -494,7 +494,7 @@ defineExpose({
 
         <p class="upload-text">
           <span class="upload-text-primary">Drag and drop or click to upload</span>
-          <span class="upload-text-secondary">PNG, JPG up to 5MB</span>
+          <span class="upload-text-secondary">PNG, JPG up to 12MB</span>
         </p>
       </div>
 
